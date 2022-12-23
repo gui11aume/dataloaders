@@ -11,11 +11,10 @@ class IterableData(torch.utils.data.IterableDataset):
     data) in parallel multi-processing environments, e.g., multi-GPU.
     """
 
-    def __init__(self, iterator, train=True):
-        # The iterator is given at construction.
-        super().__init__()
-        self.iterator = iterator
-        self.train = train
+    @property
+    def iterator(self):
+        # Extend this class to define the stream.
+        raise NotImplementedError
 
     def __iter__(self):
         # Get worker info if in multi-processing context.
@@ -37,60 +36,52 @@ class IterableData(torch.utils.data.IterableDataset):
         return itertools.islice(self.iterator, worker_rk, None, worker_nb)
 
 
-class IterableTextData(IterableData):
-    "Iterate over the lines of a text file and uncompress if needed."
+class DataFromIterator(IterableData):
 
-    def __init__(self, data_path, train=True, encoding="ascii"):
-        # The iterator is a file that will be opened by each worker.
-        super().__init__()
-        self.data_path = data_path
+    def __init__(self, iterator, train=True)
+        torch.utils.data.IterableDataset.__init__(self)
+        self._iterator = iterator
+        self.train = train
+
+    @property
+    def iterator(self):
+        return self._iterator
+
+
+class IterableDataFromFile(IterableData):
+
+    def __init__(self, path, train=True, encoding="ascii"):
+        torch.utils.data.IterableDataset.__init__(self)
+        self.path = path
         self.train = train
         self.encoding = encoding
 
+    def load(self, x):
+        raise NotImplementedError
+
     @property
     def iterator(self):
-        "Define line-by-line iterator for text file."
         # Read the magic number.
         with open(self.data_path, "rb") as f:
             magic_number = f.read(2)
         # If file is gzipped, uncompress it on the fly.
         if magic_number == b'\x1f\x8b':
             iterator = map(
-                    lambda line: line.decode(self.encoding),
-                    gzip.open(self.data_path)
+                    lambda line: self.load(line.decode(self.encoding)),
+                    gzip.open(self.path)
             )
         else:
             iterator = map(
-                    lambda line: line,
-                    open(self.data_path)
+                    lambda line: self.load(line),
+                    open(self.path)
             )
         return iterator
 
 
-class IterableJSONData(IterableData):
-    "Iterate over the lines of a JSON file and uncompress if needed."
+class IterableTextData(IterableDataFromFile):
+    def load(self, x):
+        return x
 
-    def __init__(self, data_path, train=True):
-        # The iterator is a file that will be opened by each worker.
-        super().__init__()
-        self.data_path = data_path
-        self.train = train
-
-    @property
-    def iterator(self):
-        "Define line-by-line iterator for json file."
-        # Read the magic number.
-        with open(self.data_path, "rb") as f:
-            magic_number = f.read(2)
-        # If file is gzipped, uncompress it on the fly.
-        if magic_number == b'\x1f\x8b':
-            iterator = map(
-                    lambda line: json.loads(line.decode("ascii")),
-                    gzip.open(self.data_path)
-            )
-        else:
-            iterator = map(
-                    lambda line: json.loads(line),
-                    open(self.data_path)
-            )
-        return iterator
+class IterableJSONData(IterableDataFromFile):
+    def load(self, x):
+        return json.loads(x)
