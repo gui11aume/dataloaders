@@ -57,7 +57,7 @@ class IterableJSONData(IterableData):
         # If file is gzipped, uncompress it on the fly.
         if magic_number == b'\x1f\x8b':
             iterator = map(
-                    lambda line: json.loads(line.decode("ascii")),
+                    lambda line: json.loads(line.decode("ascii", "ignore")),
                     gzip.open(self.data_path)
             )
         else:
@@ -86,7 +86,7 @@ class IterableTextData(IterableData):
         # If file is gzipped, uncompress it on the fly.
         if magic_number == b'\x1f\x8b':
             iterator = map(
-                    lambda line: line.decode(self.encoding),
+                    lambda line: line.decode(self.encoding, "ignore"),
                     gzip.open(self.data_path)
             )
         else:
